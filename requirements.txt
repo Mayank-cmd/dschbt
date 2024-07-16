@@ -9,3 +9,4 @@ python-dotenv       # If using a .env file for secrets (recommended)
 cassio
 pandas
 scikit-learn
+sentence-transformers
