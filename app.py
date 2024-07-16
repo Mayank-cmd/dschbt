@@ -52,11 +52,14 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
 
     for question, expected_answer in zip(questions, expected_answers):
         prediction = vector_index.query(question, llm=llm)
+
+        # Modified to pass the raw_text directly
         graded_output = qa_eval_chain.evaluate(
-            input_text=pdf_text,
             prediction=prediction,
-            answer=expected_answer
+            reference_answer=expected_answer,
+            input_documents=[Document(page_content=pdf_text)]
         )
+       
         if graded_output["text"] == "CORRECT":
             correct += 1
 
