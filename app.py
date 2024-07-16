@@ -8,6 +8,7 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score
+from sentence_transformers import SentenceTransformer, util
 
 # --- Configuration ---
 # (Preferably store these as secrets in Streamlit Cloud or a .env file)
@@ -20,6 +21,7 @@ TABLE_NAME = "qa_mini_demo"
 cassio.init(token=ASTRA_DB_TOKEN, database_id=ASTRA_DB_ID)
 llm = OpenAI(openai_api_key=OPENAI_API_KEY)
 embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
@@ -97,8 +99,13 @@ if st.button("Run Accuracy Test"):
         prediction = vector_index.query(question, llm=llm)
         predictions.append(prediction)
 
-    accuracy = accuracy_score(true_answers, predictions)
-    f1 = f1_score(true_answers, predictions, average="weighted")
+    # Calculate semantic similarity
+    true_embeddings = model.encode(true_answers, convert_to_tensor=True)
+    pred_embeddings = model.encode(predictions, convert_to_tensor=True)
+    similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
+
+    threshold = 0.7  # Define a threshold for similarity
+    correct_predictions = (similarities.diag() > threshold).sum().item()
+    accuracy = correct_predictions / len(true_answers)
 
     st.write(f"Accuracy: {accuracy}")
-    st.write(f"F1 Score: {f1}")
