@@ -107,7 +107,7 @@ if "test_file" not in st.session_state:
 if st.button("Evaluate Accuracy"):
     # 1. Get Questions File 
     if st.session_state["test_file"] is None:
-        questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
+        questions_file = st.file_uploader("test.csv", type=["csv", "txt"])
         if questions_file is not None:
             st.session_state["test_file"] = questions_file
 
