@@ -104,16 +104,41 @@ if prompt := st.chat_input("Your question"):
 
 
 # --- Evaluation Section ---
+# --- Evaluation Section ---
 if st.button("Evaluate Accuracy"):
-    # 1. Load Your Questions and Expected Answers
-    questions_file = st.file_uploader("test.csv", type=["csv", "txt"])
-    if questions_file is not None:
-        import pandas as pd
-        questions_df = pd.read_csv(questions_file)
-        questions = questions_df["question"].tolist()
-        expected_answers = questions_df["answer"].tolist()
+    # 1. Get Questions File Path
+    questions_file_path = st.text_input("test.csv:")
 
-        # 2. Evaluate and Display
-        accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
-        st.write(f"Accuracy: {accuracy:.2f}%")
+    if questions_file_path:
+        try:
+            import pandas as pd
+
+            # Detect file type and read accordingly
+            if questions_file_path.endswith(".csv"):
+                questions_df = pd.read_csv(questions_file_path)
+            elif questions_file_path.endswith(".txt"):
+                with open(questions_file_path, "r") as file:
+                    lines = file.readlines()
+                questions = [line.split(",")[0].strip() for line in lines]
+                expected_answers = [line.split(",")[1].strip() for line in lines]
+                questions_df = pd.DataFrame({"question": questions, "answer": expected_answers})
+            else:
+                raise ValueError("Unsupported file format. Please use CSV or TXT.")
+
+            # Check if required columns are present
+            if "question" not in questions_df.columns or "answer" not in questions_df.columns:
+                raise ValueError("Questions file must have 'question' and 'answer' columns.")
+
+            questions = questions_df["question"].tolist()
+            expected_answers = questions_df["answer"].tolist()
+
+            # 2. Evaluate and Display
+            accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
+            st.write(f"Accuracy: {accuracy:.2f}%")
+
+        except FileNotFoundError:
+            st.error(f"File not found: {questions_file_path}")
+        except ValueError as e:
+            st.error(f"Error reading questions file: {e}")
+
 
