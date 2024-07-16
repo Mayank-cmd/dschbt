@@ -7,3 +7,4 @@ openai
 tiktoken
 python-dotenv       # If using a .env file for secrets (recommended)
 cassio
+pandas
