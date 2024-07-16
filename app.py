@@ -1,11 +1,4 @@
 
-
-# --- Configuration ---
-ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
-ASTRA_DB_ID = st.secrets["astra_db_id"]
-OPENAI_API_KEY = st.secrets["openai_api_key"]
-TABLE_NAME = "qa_mini_demo"
-
 import streamlit as st
 from langchain_community.vectorstores import Cassandra
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
@@ -17,7 +10,11 @@ from langchain.text_splitter import CharacterTextSplitter
 
 # --- Evaluation Setup ---
 from langchain.evaluation.qa import QAEvalChain
-
+# --- Configuration ---
+ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
+ASTRA_DB_ID = st.secrets["astra_db_id"]
+OPENAI_API_KEY = st.secrets["openai_api_key"]
+TABLE_NAME = "qa_mini_demo"
 
 
 
