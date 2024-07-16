@@ -78,7 +78,7 @@ if prompt := st.chat_input("Your question"):
 if st.button("Run Accuracy Test"):
     test_data = pd.read_csv("test.csv")
     predictions = []
-    true_answers = test_data["expected_answer"].tolist()
+    true_answers = test_data["answer"].tolist()
 
     vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
 
