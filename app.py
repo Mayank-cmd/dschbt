@@ -101,23 +101,21 @@ if prompt := st.chat_input("Your question"):
 
 
 # --- Evaluation Section ---
-# --- Evaluation Section ---
 if st.button("Evaluate Accuracy"):
     # 1. Get Questions File Path
-    questions_file_path = st.text_input("test.csv:")
+    questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
 
-    if questions_file_path:
+    if questions_file is not None:
         try:
             import pandas as pd
 
             # Detect file type and read accordingly
-            if questions_file_path.endswith(".csv"):
-                questions_df = pd.read_csv(questions_file_path)
-            elif questions_file_path.endswith(".txt"):
-                with open(questions_file_path, "r") as file:
-                    lines = file.readlines()
-                questions = [line.split(",")[0].strip() for line in lines]
-                expected_answers = [line.split(",")[1].strip() for line in lines]
+            if questions_file.name.endswith(".csv"):
+                questions_df = pd.read_csv(questions_file)
+            elif questions_file.name.endswith(".txt"):
+                lines = questions_file.readlines()
+                questions = [line.decode('utf-8').split(",")[0].strip() for line in lines]
+                expected_answers = [line.decode('utf-8').split(",")[1].strip() for line in lines]
                 questions_df = pd.DataFrame({"question": questions, "answer": expected_answers})
             else:
                 raise ValueError("Unsupported file format. Please use CSV or TXT.")
@@ -134,8 +132,9 @@ if st.button("Evaluate Accuracy"):
             st.write(f"Accuracy: {accuracy:.2f}%")
 
         except FileNotFoundError:
-            st.error(f"File not found: {questions_file_path}")
+            st.error(f"File not found: {questions_file.name}")
         except ValueError as e:
             st.error(f"Error reading questions file: {e}")
+
 
 
