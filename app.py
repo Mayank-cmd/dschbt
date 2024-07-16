@@ -114,12 +114,12 @@ if st.button("Evaluate Accuracy"):
         questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
         if questions_file is not None:
             st.session_state["questions_file"] = questions_file
-    
-    if st.session_state["questions_file"] is not None:
+
+    if st.session_state["questions_file"] is not None:        
         try:
             questions_file = st.session_state["questions_file"]
             import pandas as pd
-            
+
             # Detect file type and read accordingly
             if questions_file.name.endswith(".csv"):
                 questions_df = pd.read_csv(questions_file)
@@ -134,18 +134,19 @@ if st.button("Evaluate Accuracy"):
             # Check if required columns are present
             if "question" not in questions_df.columns or "answer" not in questions_df.columns:
                 raise ValueError("Questions file must have 'question' and 'answer' columns.")
-    
+
             questions = questions_df["question"].tolist()
             expected_answers = questions_df["answer"].tolist()
-    
+
             # 2. Evaluate and Display
-            accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
-            st.write(f"Accuracy: {accuracy:.2f}%")
-            
+            with st.spinner("Evaluating..."):  # Add a spinner to show progress
+                accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
+            st.success(f"Accuracy: {accuracy:.2f}%")  # Display with success message
+
         except FileNotFoundError:
             st.error(f"File not found: {questions_file.name}")
         except ValueError as e:
             st.error(f"Error reading questions file: {e}")
 
     st.session_state["questions_file"] = None 
-    st.experimental_rerun() 
+
