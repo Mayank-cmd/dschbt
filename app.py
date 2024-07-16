@@ -77,6 +77,17 @@ if prompt := st.chat_input("Your question"):
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
     test_data = pd.read_csv("test.csv")
+    
+    # Display the test data to verify the column names
+    st.write(test_data.head())
+    
+    # Verify column names
+    required_columns = ["question", "answer"]
+    for column in required_columns:
+        if column not in test_data.columns:
+            st.error(f"Missing required column: {column}")
+            st.stop()
+
     predictions = []
     true_answers = test_data["answer"].tolist()
 
