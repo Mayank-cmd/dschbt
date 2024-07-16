@@ -52,14 +52,22 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
     total = len(questions)
 
     # Prepare input for evaluation (list of dicts)
-    inputs = [
-        {
-            "input_text": pdf_text,
-            "prediction": vector_store.similarity_search(question, k=1)[0].page_content,
-            "reference_answer": expected_answer,
-        }
-        for question, expected_answer in zip(questions, expected_answers)
-    ]
+    inputs = []
+    for question, expected_answer in zip(questions, expected_answers):
+        # Get most similar document (if found)
+        similar_docs = vector_store.similarity_search(question, k=1)
+        if similar_docs:
+            prediction = similar_docs[0].page_content  # Access the first element if not empty
+        else:
+            prediction = ""  # Or provide a default value
+
+        inputs.append(
+            {
+                "input_text": pdf_text,
+                "prediction": prediction,
+                "reference_answer": expected_answer
+            }
+        )
 
     # Evaluate all questions at once
     graded_outputs = qa_eval_chain.evaluate(inputs)
