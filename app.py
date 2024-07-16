@@ -7,7 +7,7 @@ import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.evaluation.qa import QAEvalChain
-from langchain.schema import Document #import this
+from langchain.schema import Document
 
 # --- Configuration ---
 # (Store these as secrets or environment variables)
@@ -26,13 +26,14 @@ qa_eval_chain = QAEvalChain.from_llm(llm, chain_type="stuff")
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
-    raw_text = ''
+    raw_text = ""
     pdfreader = PdfReader(uploaded_file)
     for page in pdfreader.pages:
         content = page.extract_text()
         if content:
             raw_text += content
     return raw_text
+
 
 def add_to_vector_store(raw_text):
     text_splitter = CharacterTextSplitter(
@@ -44,28 +45,31 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)  # Add all texts
 
+
 # --- Accuracy Evaluation Function ---
 def evaluate_accuracy(pdf_text, questions, expected_answers):
     correct = 0
     total = len(questions)
 
-    vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+    # Prepare input for evaluation (list of dicts)
+    inputs = [
+        {
+            "input_text": pdf_text,
+            "prediction": vector_store.similarity_search(question, k=1)[0].page_content,
+            "reference_answer": expected_answer,
+        }
+        for question, expected_answer in zip(questions, expected_answers)
+    ]
 
-    for question, expected_answer in zip(questions, expected_answers):
-        prediction = vector_index.query(question, llm=llm)
-
-        # Modified to pass the raw_text directly
-        graded_output = qa_eval_chain.evaluate(
-            prediction=prediction,
-            reference_answer=expected_answer,
-            input_documents=[Document(page_content=pdf_text)]
-        )
-       
+    # Evaluate all questions at once
+    graded_outputs = qa_eval_chain.evaluate(inputs)
+    for graded_output in graded_outputs:
         if graded_output["text"] == "CORRECT":
             correct += 1
 
     accuracy = (correct / total) * 100
     return accuracy
+
 
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
@@ -74,34 +78,36 @@ st.title("DataScience:GPT - PDF Q&A Chatbot")
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
 
-if uploaded_file and questions_file is not None:
+if uploaded_file is not None:
     raw_text = load_pdf(uploaded_file)
     add_to_vector_store(raw_text)
     st.success("PDF processed and added to the vector store!")
 
-    # Chat Interface
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
+# Chat Interface
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+    st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    if prompt := st.chat_input("Your question"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+if prompt := st.chat_input("Your question"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        with st.chat_message("assistant"):
-            vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-            answer = vector_index.query(prompt, llm=llm)
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
-   
-    # --- Evaluation Section ---
-    if st.button("Evaluate Accuracy"):
+    with st.chat_message("assistant"):
+        vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+        answer = vector_index.query(prompt, llm=llm)
+        st.markdown(answer)
+        st.session_state.messages.append({"role": "assistant", "content": answer})
+
+
+# --- Evaluation Section ---
+if st.button("Evaluate Accuracy"):
+    if questions_file is not None:  
         try:
             import pandas as pd
 
@@ -126,7 +132,7 @@ if uploaded_file and questions_file is not None:
             # 2. Evaluate and Display
             with st.spinner("Evaluating..."):  
                 accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
-            st.success(f"Accuracy: {accuracy:.2f}%") 
+            st.success(f"Accuracy: {accuracy:.2f}%")
 
         except FileNotFoundError:
             st.error(f"File not found: {questions_file.name}")
