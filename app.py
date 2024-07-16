@@ -73,8 +73,6 @@ st.title("DataScience:GPT - PDF Q&A Chatbot")
 # File Upload
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
-if "questions_file" not in st.session_state:
-    st.session_state["questions_file"] = None
 
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 if uploaded_file is not None:
@@ -107,7 +105,9 @@ if prompt := st.chat_input("Your question"):
 
 
 # --- Evaluation Section ---
-
+if "questions_file" not in st.session_state:
+    st.session_state["questions_file"] = None
+    
 if st.button("Evaluate Accuracy"):
     # 1. Get Questions File 
     if st.session_state["questions_file"] is None:
@@ -147,6 +147,3 @@ if st.button("Evaluate Accuracy"):
             st.error(f"File not found: {questions_file.name}")
         except ValueError as e:
             st.error(f"Error reading questions file: {e}")
-
-    st.session_state["questions_file"] = None 
-
