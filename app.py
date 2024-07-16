@@ -71,14 +71,18 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
 # File Upload
-if "test_file" not in st.session_state:
-    st.session_state["test_file"] = None
+if "uploaded_file" not in st.session_state:
+    st.session_state["uploaded_file"] = None
+if "questions_file" not in st.session_state:
+    st.session_state["questions_file"] = None
 
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
 if uploaded_file is not None:
-    raw_text = load_pdf(uploaded_file)
-    add_to_vector_store(raw_text)
-    st.success("PDF processed and added to the vector store!")
+    if st.session_state["uploaded_file"] is None or st.session_state["uploaded_file"].name != uploaded_file.name:
+        st.session_state["uploaded_file"] = uploaded_file
+        raw_text = load_pdf(uploaded_file)
+        add_to_vector_store(raw_text)
+        st.success("PDF processed and added to the vector store!")
 
 # Chat Interface
 if "messages" not in st.session_state:
@@ -102,8 +106,8 @@ if prompt := st.chat_input("Your question"):
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
 
-
 # --- Evaluation Section ---
+
 if st.button("Evaluate Accuracy"):
     # 1. Get Questions File 
     if st.session_state["questions_file"] is None:
@@ -137,10 +141,11 @@ if st.button("Evaluate Accuracy"):
             # 2. Evaluate and Display
             accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
             st.write(f"Accuracy: {accuracy:.2f}%")
-            st.session_state["questions_file"] = None 
-            st.experimental_rerun() # This will clear the file uploader and rerun the script 
             
         except FileNotFoundError:
             st.error(f"File not found: {questions_file.name}")
         except ValueError as e:
             st.error(f"Error reading questions file: {e}")
+
+    st.session_state["questions_file"] = None 
+    st.experimental_rerun() 
