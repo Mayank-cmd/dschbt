@@ -6,8 +6,6 @@ from langchain.embeddings import OpenAIEmbeddings
 import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-
-# --- Evaluation Setup ---
 from langchain.evaluation.qa import QAEvalChain
 
 # --- Configuration ---
@@ -27,14 +25,13 @@ qa_eval_chain = QAEvalChain.from_llm(llm, chain_type="stuff")
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
-    raw_text = ""
+    raw_text = ''
     pdfreader = PdfReader(uploaded_file)
     for page in pdfreader.pages:
         content = page.extract_text()
         if content:
             raw_text += content
     return raw_text
-
 
 def add_to_vector_store(raw_text):
     text_splitter = CharacterTextSplitter(
@@ -45,7 +42,6 @@ def add_to_vector_store(raw_text):
     )
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)  # Add all texts
-
 
 # --- Accuracy Evaluation Function ---
 def evaluate_accuracy(pdf_text, questions, expected_answers):
@@ -67,57 +63,42 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
     accuracy = (correct / total) * 100
     return accuracy
 
-
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
-# File Upload
-if "uploaded_file" not in st.session_state:
-    st.session_state["uploaded_file"] = None
 
+# File Uploads
 uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-if uploaded_file is not None:
-    if st.session_state["uploaded_file"] is None or st.session_state["uploaded_file"].name != uploaded_file.name:
-        st.session_state["uploaded_file"] = uploaded_file
-        raw_text = load_pdf(uploaded_file)
-        add_to_vector_store(raw_text)
-        st.success("PDF processed and added to the vector store!")
+questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
 
-# Chat Interface
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-    st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
+if uploaded_file and questions_file is not None:
+    raw_text = load_pdf(uploaded_file)
+    add_to_vector_store(raw_text)
+    st.success("PDF processed and added to the vector store!")
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    # Chat Interface
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+        st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
 
-if prompt := st.chat_input("Your question"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    if prompt := st.chat_input("Your question"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
-    with st.chat_message("assistant"):
-        vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-        answer = vector_index.query(prompt, llm=llm)
-        st.markdown(answer)
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-
-# --- Evaluation Section ---
-if "questions_file" not in st.session_state:
-    st.session_state["questions_file"] = None
-    
-if st.button("Evaluate Accuracy"):
-    # 1. Get Questions File 
-    if st.session_state["questions_file"] is None:
-        questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
-        if questions_file is not None:
-            st.session_state["questions_file"] = questions_file
-
-    if st.session_state["questions_file"] is not None:        
+        with st.chat_message("assistant"):
+            vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+            answer = vector_index.query(prompt, llm=llm)
+            st.markdown(answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+   
+    # --- Evaluation Section ---
+    if st.button("Evaluate Accuracy"):
         try:
-            questions_file = st.session_state["questions_file"]
             import pandas as pd
 
             # Detect file type and read accordingly
@@ -139,9 +120,9 @@ if st.button("Evaluate Accuracy"):
             expected_answers = questions_df["answer"].tolist()
 
             # 2. Evaluate and Display
-            with st.spinner("Evaluating..."):  # Add a spinner to show progress
+            with st.spinner("Evaluating..."):  
                 accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
-            st.success(f"Accuracy: {accuracy:.2f}%")  # Display with success message
+            st.success(f"Accuracy: {accuracy:.2f}%") 
 
         except FileNotFoundError:
             st.error(f"File not found: {questions_file.name}")
