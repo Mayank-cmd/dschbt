@@ -8,6 +8,7 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.evaluation.qa import QAEvalChain
 from langchain.schema import Document
+import json
 
 # --- Configuration ---
 # (Store these as secrets or environment variables)
@@ -52,25 +53,21 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
     total = len(questions)
 
     # Prepare input for evaluation (list of dicts)
-    inputs = []
-    for question, expected_answer in zip(questions, expected_answers):
-        # Get most similar document (if found)
-        similar_docs = vector_store.similarity_search(question, k=1)
-        if similar_docs:
-            prediction = similar_docs[0].page_content  # Access the first element if not empty
-        else:
-            prediction = ""  # Or provide a default value
+    inputs = [
+        {
+            "input_text": pdf_text,
+            "prediction": vector_store.similarity_search(question, k=1)[0].page_content,
+            "reference_answer": expected_answer
+        } 
+        for question, expected_answer in zip(questions, expected_answers)
+    ]
 
-        inputs.append(
-            {
-                "input_text": pdf_text,
-                "prediction": prediction,
-                "reference_answer": expected_answer
-            }
-        )
+    # Convert the inputs to a JSON string for the API call
+    input_json_string = json.dumps(inputs)
 
     # Evaluate all questions at once
-    graded_outputs = qa_eval_chain.evaluate(inputs)
+    graded_outputs = qa_eval_chain.evaluate(input_json_string=input_json_string)
+
     for graded_output in graded_outputs:
         if graded_output["text"] == "CORRECT":
             correct += 1
@@ -111,7 +108,6 @@ if prompt := st.chat_input("Your question"):
         answer = vector_index.query(prompt, llm=llm)
         st.markdown(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
-
 
 # --- Evaluation Section ---
 if st.button("Evaluate Accuracy"):
