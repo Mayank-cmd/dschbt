@@ -62,11 +62,8 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
         for question, expected_answer in zip(questions, expected_answers)
     ]
 
-    # Convert the inputs to a JSON string for the API call
-    input_json_string = json.dumps(inputs)
-
-    # Evaluate all questions at once
-    graded_outputs = qa_eval_chain.evaluate(input_json_string=input_json_string)
+    # Convert inputs to a list of dictionaries instead of a JSON string
+    graded_outputs = qa_eval_chain.evaluate(inputs)  # Use inputs directly as a list of dictionaries
 
     for graded_output in graded_outputs:
         if graded_output["text"] == "CORRECT":
@@ -74,7 +71,6 @@ def evaluate_accuracy(pdf_text, questions, expected_answers):
 
     accuracy = (correct / total) * 100
     return accuracy
-
 
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
