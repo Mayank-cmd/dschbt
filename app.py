@@ -103,7 +103,7 @@ if prompt := st.chat_input("Your question"):
 # --- Evaluation Section ---
 if st.button("Evaluate Accuracy"):
     # 1. Get Questions File Path
-    questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
+    questions_file = st.file_uploader("test.csv", type=["csv", "txt"])
 
     if questions_file is not None:
         try:
