@@ -102,20 +102,20 @@ if prompt := st.chat_input("Your question"):
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
 
-# --- Evaluation Section ---
 
+# --- Evaluation Section ---
 if st.button("Evaluate Accuracy"):
     # 1. Get Questions File 
-    if st.session_state["test_file"] is None:
-        questions_file = st.file_uploader("test.csv", type=["csv", "txt"])
+    if st.session_state["questions_file"] is None:
+        questions_file = st.file_uploader("Upload questions file (CSV/text)", type=["csv", "txt"])
         if questions_file is not None:
-            st.session_state["test_file"] = questions_file
-
-    if st.session_state["test_file"] is not None:        
+            st.session_state["questions_file"] = questions_file
+    
+    if st.session_state["questions_file"] is not None:
         try:
-            questions_file = st.session_state["test_file"]
+            questions_file = st.session_state["questions_file"]
             import pandas as pd
-
+            
             # Detect file type and read accordingly
             if questions_file.name.endswith(".csv"):
                 questions_df = pd.read_csv(questions_file)
@@ -130,17 +130,17 @@ if st.button("Evaluate Accuracy"):
             # Check if required columns are present
             if "question" not in questions_df.columns or "answer" not in questions_df.columns:
                 raise ValueError("Questions file must have 'question' and 'answer' columns.")
-
+    
             questions = questions_df["question"].tolist()
             expected_answers = questions_df["answer"].tolist()
-
+    
             # 2. Evaluate and Display
             accuracy = evaluate_accuracy(raw_text, questions, expected_answers)
             st.write(f"Accuracy: {accuracy:.2f}%")
-
+            st.session_state["questions_file"] = None 
+            st.experimental_rerun() # This will clear the file uploader and rerun the script 
+            
         except FileNotFoundError:
             st.error(f"File not found: {questions_file.name}")
         except ValueError as e:
             st.error(f"Error reading questions file: {e}")
-    st.session_state["test_file"] = None 
-    st.experimental_rerun() 
