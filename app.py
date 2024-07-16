@@ -7,6 +7,7 @@ import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.evaluation.qa import QAEvalChain
+from langchain.schema import Document #import this
 
 # --- Configuration ---
 # (Store these as secrets or environment variables)
