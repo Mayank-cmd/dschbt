@@ -133,6 +133,3 @@ if st.button("Run Accuracy Test"):
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
 
 
-    else:
-        st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
-
