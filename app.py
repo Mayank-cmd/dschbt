@@ -89,14 +89,14 @@ if prompt := st.chat_input("Your question"):
         st.markdown(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
+# ... (Your other imports and helper functions remain the same)
+
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
     if os.path.exists("test_data.csv"):
         test_data = pd.read_csv("test_data.csv")
-        
-        # Display the test data to verify the column names
         st.write(test_data.head())
-        
+
         # Verify column names
         required_columns = ["question", "answer"]
         for column in required_columns:
@@ -106,7 +106,6 @@ if st.button("Run Accuracy Test"):
 
         predictions = []
         true_answers = test_data["answer"].tolist()
-
         vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
 
         for question in test_data["question"]:
@@ -118,29 +117,31 @@ if st.button("Run Accuracy Test"):
         pred_embeddings = model.encode(predictions, convert_to_tensor=True)
         similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
 
-        threshold = 0.7  # Define a threshold for similarity
+        threshold = 0.7
         correct_predictions = (similarities.diag() > threshold).sum().item()
         accuracy = correct_predictions / len(true_answers)
+        st.write(f"Accuracy (Semantic Similarity): {accuracy:.2f}")
 
-        st.write(f"Accuracy: {accuracy}")
+        # Preprocess answers for exact match
+        true_answers_preprocessed = [preprocess_text(answer) for answer in true_answers]
+        predictions_preprocessed = [preprocess_text(prediction) for prediction in predictions]
 
-        # Calculate Precision and Recall for exact match comparison
-        true_answers = [preprocess_text(answer) for answer in true_answers]
-        predictions = [preprocess_text(prediction) for prediction in predictions]
+        # Convert preprocessed answers to numerical labels (1 for match, 0 for mismatch)
+        true_labels = [1 if true == pred else 0 for true, pred in zip(true_answers_preprocessed, predictions_preprocessed)]
 
-        # Debugging output
+        # Calculate Precision and Recall
+        precision = precision_score(true_labels, true_labels, average='micro') 
+        recall = recall_score(true_labels, true_labels, average='micro')
+
+        st.write(f"Precision (Exact Match): {precision:.2f}")
+        st.write(f"Recall (Exact Match): {recall:.2f}")
+
+        # Debugging Output
         for i in range(len(true_answers)):
             st.write(f"Q: {test_data['question'][i]}")
             st.write(f"True: {true_answers[i]}")
             st.write(f"Pred: {predictions[i]}")
             st.write("---")
-
-        # If using micro average, precision and recall calculation
-        precision = precision_score(true_answers, predictions, average="micro")
-        recall = recall_score(true_answers, predictions, average="micro")
-
-        st.write(f"Precision: {precision}")
-        st.write(f"Recall: {recall}")
 
         # Plotting the metrics
         metrics = ['Accuracy', 'Precision', 'Recall']
@@ -155,3 +156,4 @@ if st.button("Run Accuracy Test"):
         st.pyplot(fig)
     else:
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
+
