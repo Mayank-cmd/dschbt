@@ -11,6 +11,13 @@ from sklearn.metrics import accuracy_score, f1_score
 from sentence_transformers import SentenceTransformer, util
 import matplotlib.pyplot as plt
 import os
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('stopwords')
+nltk.download('wordnet')
 
 # --- Configuration ---
 # (Preferably store these as secrets in Streamlit Cloud or a .env file)
@@ -26,6 +33,7 @@ embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
+lemmatizer = WordNetLemmatizer()
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
@@ -48,7 +56,12 @@ def add_to_vector_store(raw_text):
     vector_store.add_texts(texts)  # Add all texts
 
 def preprocess_text(text):
-    return text.strip().lower()
+    text = text.strip().lower()
+    text = re.sub(r'\W', ' ', text)  # Remove punctuation
+    text = re.sub(r'\s+', ' ', text)  # Normalize spaces
+    words = text.split()
+    words = [lemmatizer.lemmatize(word) for word in words if word not in stopwords.words('english')]
+    return ' '.join(words)
 
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
@@ -127,7 +140,8 @@ if st.button("Run Accuracy Test"):
             st.write(f"Pred: {predictions[i]}")
             st.write("---")
 
-        f1 = f1_score(true_answers, predictions, average="weighted")
+        # If using micro average, F1 score calculation
+        f1 = f1_score(true_answers, predictions, average="micro")
 
         st.write(f"F1 Score: {f1}")
 
