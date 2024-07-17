@@ -91,6 +91,8 @@ if prompt := st.chat_input("Your question"):
 
 # ... (Your other imports and helper functions remain the same)
 
+# ... (Your other imports and helper functions remain the same)
+
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
     if os.path.exists("test_data.csv"):
@@ -115,45 +117,49 @@ if st.button("Run Accuracy Test"):
         # Calculate semantic similarity
         true_embeddings = model.encode(true_answers, convert_to_tensor=True)
         pred_embeddings = model.encode(predictions, convert_to_tensor=True)
-        similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
-
-        threshold = 0.7
-        correct_predictions = (similarities.diag() > threshold).sum().item()
-        accuracy = correct_predictions / len(true_answers)
-        st.write(f"Accuracy (Semantic Similarity): {accuracy:.2f}")
+        cosine_similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings).diagonal()
+        
+        # Accuracy (Semantic Similarity)
+        accuracy_threshold = 0.7  # You can adjust this threshold
+        semantic_accuracy = (cosine_similarities > accuracy_threshold).float().mean().item()
+        st.write(f"Accuracy (Semantic Similarity): {semantic_accuracy:.2f}")
 
         # Preprocess answers for exact match
         true_answers_preprocessed = [preprocess_text(answer) for answer in true_answers]
         predictions_preprocessed = [preprocess_text(prediction) for prediction in predictions]
 
-        # Convert preprocessed answers to numerical labels (1 for match, 0 for mismatch)
-        true_labels = [1 if true == pred else 0 for true, pred in zip(true_answers_preprocessed, predictions_preprocessed)]
+        # Exact Match Metrics
+        exact_matches = sum(1 for true, pred in zip(true_answers_preprocessed, predictions_preprocessed) if true == pred)
+        exact_match_accuracy = exact_matches / len(true_answers)
+        st.write(f"Accuracy (Exact Match): {exact_match_accuracy:.2f}")
 
-        # Calculate Precision and Recall
-        precision = precision_score(true_labels, true_labels, average='micro') 
-        recall = recall_score(true_labels, true_labels, average='micro')
+        true_labels = [1] * len(true_answers)  # All true answers are considered positive for exact match
+
+        precision = precision_score(true_labels, [1 if p == t else 0 for p, t in zip(predictions_preprocessed, true_answers_preprocessed)], average='micro')
+        recall = recall_score(true_labels, [1 if p == t else 0 for p, t in zip(predictions_preprocessed, true_answers_preprocessed)], average='micro')
 
         st.write(f"Precision (Exact Match): {precision:.2f}")
         st.write(f"Recall (Exact Match): {recall:.2f}")
 
-        # Debugging Output
-        for i in range(len(true_answers)):
-            st.write(f"Q: {test_data['question'][i]}")
-            st.write(f"True: {true_answers[i]}")
-            st.write(f"Pred: {predictions[i]}")
-            st.write("---")
+        # Debugging Output (Optional)
+        # Uncomment this if you want to see detailed output for each question/answer pair
+        # for i in range(len(true_answers)):
+        #     st.write(f"Q: {test_data['question'][i]}")
+        #     st.write(f"True: {true_answers[i]}")
+        #     st.write(f"Pred: {predictions[i]}")
+        #     st.write(f"Cosine Similarity: {cosine_similarities[i]:.2f}") 
+        #     st.write("---")
 
-        # Plotting the metrics
-        metrics = ['Accuracy', 'Precision', 'Recall']
-        scores = [accuracy, precision, recall]
-
+        # Plotting
+        metrics = ['Semantic Accuracy', 'Exact Match Accuracy', 'Precision', 'Recall']
+        scores = [semantic_accuracy, exact_match_accuracy, precision, recall]
         fig, ax = plt.subplots()
-        ax.barh(metrics, scores, color=['blue', 'orange', 'green'])
+        ax.barh(metrics, scores, color=['skyblue', 'lightgreen', 'orange', 'lightcoral'])
         ax.set_xlim(0, 1)
         ax.set_xlabel('Score')
         ax.set_title('Chatbot Performance Metrics')
-
         st.pyplot(fig)
     else:
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
+
 
