@@ -82,8 +82,10 @@ if prompt := st.chat_input("Your question"):
         st.markdown(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
-# --- Accuracy Testing and Keyword Visualization ---
-if st.button("Run Accuracy Test and Visualize Keywords"):
+# ... (your existing imports and helper functions remain the same)
+
+# --- Accuracy Testing ---
+if st.button("Run Accuracy Test"):
     if os.path.exists("test_data.csv"):
         test_data = pd.read_csv("test_data.csv")
         st.write(test_data.head())
@@ -95,6 +97,9 @@ if st.button("Run Accuracy Test and Visualize Keywords"):
                 st.error(f"Missing required column: {column}")
                 st.stop()
 
+        if "accuracy_history" not in st.session_state:
+            st.session_state.accuracy_history = []
+            
         predictions = []
         true_answers = test_data["answer"].tolist()
         vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
@@ -123,39 +128,10 @@ if st.button("Run Accuracy Test and Visualize Keywords"):
         ax1.set_title('Accuracy Over Time')
         ax1.set_ylim(0, 1) 
         st.pyplot(fig1)
+        
+    else:
+        st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
 
-        # Keyword Extraction and Visualization
-        vectorizer = TfidfVectorizer()  # Now TfidfVectorizer is defined
-        tfidf_matrix = vectorizer.fit_transform(test_data["question"])
-        feature_names = vectorizer.get_feature_names_out()
-        top_n_keywords = 10  # Adjust as needed
-        top_keywords_indices = tfidf_matrix.toarray().argsort(axis=1)[:, -top_n_keywords:]
-
-        # Prepare data for scatter plot
-        x = []
-        y = []
-        keywords = []
-        for i, question in enumerate(test_data["question"]):
-            for j in top_keywords_indices[i]:
-                x.append(i + 1)  # Question index
-                y.append(tfidf_matrix[i, j])  # TF-IDF score
-                keywords.append(feature_names[j])
-
-        # Plot the scatter plot
-        fig2, ax2 = plt.subplots(figsize=(10, 6))
-        scatter = ax2.scatter(x, y, c='skyblue', alpha=0.7)
-
-        # Add labels and title
-        ax2.set_xlabel('Question Number')
-        ax2.set_ylabel('TF-IDF Score')
-        ax2.set_title('Top Keywords in Questions')
-        ax2.set_xticks(range(1, len(test_data["question"]) + 1))
-
-        # (Optional) Annotate keywords for better readability
-        # for i, txt in enumerate(keywords):
-        #     ax2.annotate(txt, (x[i], y[i]), xytext=(5, 0), textcoords="offset points")
-            
-        st.pyplot(fig2)
 
     else:
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
