@@ -81,16 +81,18 @@ if prompt := st.chat_input("Your question"):
         st.markdown(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
-# --- Accuracy Testing ---
-if "accuracy_history" not in st.session_state:
-    st.session_state.accuracy_history = []
-
-if st.button("Run Accuracy Test"):
+# --- Accuracy Testing and Keyword Visualization ---
+if st.button("Run Accuracy Test and Visualize Keywords"):
     if os.path.exists("test_data.csv"):
         test_data = pd.read_csv("test_data.csv")
         st.write(test_data.head())
 
-        # Verify column names (same as before)
+        # Verify column names
+        required_columns = ["question", "answer"]
+        for column in required_columns:
+            if column not in test_data.columns:
+                st.error(f"Missing required column: {column}")
+                st.stop()
 
         predictions = []
         true_answers = test_data["answer"].tolist()
@@ -105,21 +107,55 @@ if st.button("Run Accuracy Test"):
         pred_embeddings = model.encode(predictions, convert_to_tensor=True)
         similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
 
-        threshold = 0.7
-        correct_predictions = (similarities.diag() > threshold).sum().item()
+        accuracy_threshold = 0.7
+        correct_predictions = (similarities.diag() > accuracy_threshold).sum().item()
         accuracy = correct_predictions / len(true_answers)
         st.write(f"Accuracy: {accuracy}")
 
-        # Update accuracy history
         st.session_state.accuracy_history.append(accuracy)
 
         # Plotting Accuracy Over Time
-        fig, ax = plt.subplots()
-        ax.plot(st.session_state.accuracy_history, marker='o', linestyle='-', color='skyblue')
-        ax.set_xlabel('Test Instance')
-        ax.set_ylabel('Accuracy')
-        ax.set_title('Accuracy Over Time')
-        ax.set_ylim(0, 1)
-        st.pyplot(fig)
+        fig1, ax1 = plt.subplots()
+        ax1.plot(st.session_state.accuracy_history, marker='o', linestyle='-', color='skyblue')
+        ax1.set_xlabel('Test Instance')
+        ax1.set_ylabel('Accuracy')
+        ax1.set_title('Accuracy Over Time')
+        ax1.set_ylim(0, 1) 
+        st.pyplot(fig1)
+
+        # Keyword Extraction and Visualization
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(test_data["question"])
+        feature_names = vectorizer.get_feature_names_out()
+        top_n_keywords = 10  # Adjust as needed
+        top_keywords_indices = tfidf_matrix.toarray().argsort(axis=1)[:, -top_n_keywords:]
+
+        # Prepare data for scatter plot
+        x = []
+        y = []
+        keywords = []
+        for i, question in enumerate(test_data["question"]):
+            for j in top_keywords_indices[i]:
+                x.append(i + 1)  # Question index
+                y.append(tfidf_matrix[i, j])  # TF-IDF score
+                keywords.append(feature_names[j])
+
+        # Plot the scatter plot
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        scatter = ax2.scatter(x, y, c='skyblue', alpha=0.7)
+
+        # Add labels and title
+        ax2.set_xlabel('Question Number')
+        ax2.set_ylabel('TF-IDF Score')
+        ax2.set_title('Top Keywords in Questions')
+        ax2.set_xticks(range(1, len(test_data["question"]) + 1))
+
+        # (Optional) Annotate keywords for better readability
+        # for i, txt in enumerate(keywords):
+        #     ax2.annotate(txt, (x[i], y[i]), xytext=(5, 0), textcoords="offset points")
+            
+        st.pyplot(fig2)
+
     else:
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
+
