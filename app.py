@@ -9,6 +9,7 @@ from langchain.text_splitter import CharacterTextSplitter
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score
 from sentence_transformers import SentenceTransformer, util
+import matplotlib.pyplot as plt
 
 # --- Configuration ---
 # (Preferably store these as secrets in Streamlit Cloud or a .env file)
@@ -78,7 +79,7 @@ if prompt := st.chat_input("Your question"):
 
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
-    test_data = pd.read_csv("test.csv")
+    test_data = pd.read_csv("test_data.csv")
     
     # Display the test data to verify the column names
     st.write(test_data.head())
@@ -109,3 +110,23 @@ if st.button("Run Accuracy Test"):
     accuracy = correct_predictions / len(true_answers)
 
     st.write(f"Accuracy: {accuracy}")
+
+    # Calculate F1 score for exact match comparison
+    true_answers = [preprocess_text(answer) for answer in true_answers]
+    predictions = [preprocess_text(prediction) for prediction in predictions]
+
+    f1 = f1_score(true_answers, predictions, average="weighted")
+
+    st.write(f"F1 Score: {f1}")
+
+    # Plotting the accuracy and F1 score
+    metrics = ['Accuracy', 'F1 Score']
+    scores = [accuracy, f1]
+
+    fig, ax = plt.subplots()
+    ax.barh(metrics, scores, color=['blue', 'orange'])
+    ax.set_xlim(0, 1)
+    ax.set_xlabel('Score')
+    ax.set_title('Chatbot Performance Metrics')
+
+    st.pyplot(fig)
