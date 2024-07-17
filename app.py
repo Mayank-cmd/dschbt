@@ -1,11 +1,23 @@
 import streamlit as st
-import pandas as pd
 from langchain_community.vectorstores import Cassandra
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
 from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
+import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
+import pandas as pd
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sentence_transformers import SentenceTransformer, util
+import matplotlib.pyplot as plt
+import os
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('stopwords')
+nltk.download('wordnet')
 
 # --- Configuration ---
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
@@ -17,8 +29,10 @@ TABLE_NAME = "qa_mini_demo"
 cassio.init(token=ASTRA_DB_TOKEN, database_id=ASTRA_DB_ID)
 llm = OpenAI(openai_api_key=OPENAI_API_KEY)
 embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
+lemmatizer = WordNetLemmatizer()
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
@@ -40,6 +54,14 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)  # Add all texts
 
+def preprocess_text(text):
+    text = text.strip().lower()
+    text = re.sub(r'\W', ' ', text)  # Remove punctuation
+    text = re.sub(r'\s+', ' ', text)  # Normalize spaces
+    words = text.split()
+    words = [lemmatizer.lemmatize(word) for word in words if word not in stopwords.words('english')]
+    return ' '.join(words)
+
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
 
@@ -50,36 +72,7 @@ if uploaded_file is not None:
     add_to_vector_store(raw_text)
     st.success("PDF processed and added to the vector store!")
 
-# Accuracy Testing
-if st.button("Run Accuracy Test"):
-    if "test_data.csv" in st.secrets:
-        test_data = pd.read_csv(st.secrets["test_data.csv"])
-        vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-        
-        true_answers = test_data["answer"].tolist()
-        predictions = []
-        
-        for question in test_data["question"]:
-            prediction = vector_index.query(question, llm=llm)
-            predictions.append(prediction)
-        
-        correct_predictions = sum(1 for true, pred in zip(true_answers, predictions) if true == pred)
-        total_predictions = len(predictions)
-        accuracy = correct_predictions / total_predictions
-        
-        st.write(f"Accuracy: {accuracy}")
-        
-        # Plot accuracy
-        fig, ax = plt.subplots()
-        ax.bar(["Accuracy"], [accuracy], color='skyblue')
-        ax.set_ylim(0, 1)
-        ax.set_ylabel('Accuracy')
-        ax.set_title('Chatbot Accuracy')
-        st.pyplot(fig)
-    else:
-        st.error("No test data file found. Please upload 'test_data.csv' to secrets.")
-
-# Displaying the app messages
+# Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
@@ -99,3 +92,72 @@ if prompt := st.chat_input("Your question"):
         answer = vector_index.query(prompt, llm=llm)
         st.markdown(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
+
+# --- Accuracy Testing ---
+if st.button("Run Accuracy Test"):
+    if os.path.exists("test_data.csv"):
+        test_data = pd.read_csv("test_data.csv")
+        
+        # Display the test data to verify the column names
+        st.write(test_data.head())
+        
+        # Verify column names
+        required_columns = ["question", "answer"]
+        for column in required_columns:
+            if column not in test_data.columns:
+                st.error(f"Missing required column: {column}")
+                st.stop()
+
+        predictions = []
+        true_answers = test_data["answer"].tolist()
+
+        vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+
+        for question in test_data["question"]:
+            prediction = vector_index.query(question, llm=llm)
+            predictions.append(prediction)
+
+        # Calculate semantic similarity
+        true_embeddings = model.encode(true_answers, convert_to_tensor=True)
+        pred_embeddings = model.encode(predictions, convert_to_tensor=True)
+        similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
+
+        threshold = 0.7  # Define a threshold for similarity
+        correct_predictions = (similarities.diag() > threshold).sum().item()
+        accuracy = correct_predictions / len(true_answers)
+
+        st.write(f"Accuracy: {accuracy}")
+
+        # Calculate Precision and Recall for exact match comparison
+        true_answers = [preprocess_text(answer) for answer in true_answers]
+        predictions = [preprocess_text(prediction) for prediction in predictions]
+
+        # Debugging output
+        for i in range(len(true_answers)):
+            st.write(f"Q: {test_data['question'][i]}")
+            st.write(f"True: {true_answers[i]}")
+            st.write(f"Pred: {predictions[i]}")
+            st.write("---")
+
+        # Use a simple method to check for exact matches
+        exact_matches = [1 if true == pred else 0 for true, pred in zip(true_answers, predictions)]
+        
+        precision = sum(exact_matches) / len(predictions)
+        recall = sum(exact_matches) / len(true_answers)
+
+        st.write(f"Precision: {precision}")
+        st.write(f"Recall: {recall}")
+
+        # Plotting the metrics
+        metrics = ['Accuracy', 'Precision', 'Recall']
+        scores = [accuracy, precision, recall]
+
+        fig, ax = plt.subplots()
+        ax.barh(metrics, scores, color=['blue', 'orange', 'green'])
+        ax.set_xlim(0, 1)
+        ax.set_xlabel('Score')
+        ax.set_title('Chatbot Performance Metrics')
+
+        st.pyplot(fig)
+    else:
+        st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
