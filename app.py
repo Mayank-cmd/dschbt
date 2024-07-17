@@ -91,8 +91,6 @@ if prompt := st.chat_input("Your question"):
 
 # ... (Your other imports and helper functions remain the same)
 
-# ... (Your other imports and helper functions remain the same)
-
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
     if os.path.exists("test_data.csv"):
@@ -140,15 +138,6 @@ if st.button("Run Accuracy Test"):
 
         st.write(f"Precision (Exact Match): {precision:.2f}")
         st.write(f"Recall (Exact Match): {recall:.2f}")
-
-        # Debugging Output (Optional)
-        # Uncomment this if you want to see detailed output for each question/answer pair
-        # for i in range(len(true_answers)):
-        #     st.write(f"Q: {test_data['question'][i]}")
-        #     st.write(f"True: {true_answers[i]}")
-        #     st.write(f"Pred: {predictions[i]}")
-        #     st.write(f"Cosine Similarity: {cosine_similarities[i]:.2f}") 
-        #     st.write("---")
 
         # Plotting
         metrics = ['Semantic Accuracy', 'Exact Match Accuracy', 'Precision', 'Recall']
