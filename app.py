@@ -120,13 +120,6 @@ if st.button("Run Accuracy Test"):
         true_answers = [preprocess_text(answer) for answer in true_answers]
         predictions = [preprocess_text(prediction) for prediction in predictions]
 
-        # Debugging output
-        for i in range(len(true_answers)):
-            st.write(f"Q: {test_data['question'][i]}")
-            st.write(f"True: {true_answers[i]}")
-            st.write(f"Pred: {predictions[i]}")
-            st.write("---")
-
         f1 = f1_score(true_answers, predictions, average="weighted")
 
         st.write(f"F1 Score: {f1}")
