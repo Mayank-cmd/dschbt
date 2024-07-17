@@ -10,3 +10,4 @@ cassio
 pandas
 scikit-learn
 sentence-transformers
+matplotlib
