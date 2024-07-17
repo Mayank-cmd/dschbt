@@ -1,4 +1,4 @@
-streamlit
+streamlit==1.4.0
 langchain
 langchain-community
 cassandra-driver   # or "datastax-astra" if using Astra DB directly
