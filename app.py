@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from sentence_transformers import SentenceTransformer, util
 import matplotlib.pyplot as plt
 import os
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # --- Configuration ---
 # (Preferably store these as secrets in Streamlit Cloud or a .env file)
@@ -124,7 +125,7 @@ if st.button("Run Accuracy Test and Visualize Keywords"):
         st.pyplot(fig1)
 
         # Keyword Extraction and Visualization
-        vectorizer = TfidfVectorizer()
+        vectorizer = TfidfVectorizer()  # Now TfidfVectorizer is defined
         tfidf_matrix = vectorizer.fit_transform(test_data["question"])
         feature_names = vectorizer.get_feature_names_out()
         top_n_keywords = 10  # Adjust as needed
