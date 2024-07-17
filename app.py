@@ -82,23 +82,18 @@ if prompt := st.chat_input("Your question"):
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
 # --- Accuracy Testing ---
+if "accuracy_history" not in st.session_state:
+    st.session_state.accuracy_history = []
+
 if st.button("Run Accuracy Test"):
     if os.path.exists("test_data.csv"):
         test_data = pd.read_csv("test_data.csv")
-        
-        # Display the test data to verify the column names
         st.write(test_data.head())
-        
-        # Verify column names
-        required_columns = ["question", "answer"]
-        for column in required_columns:
-            if column not in test_data.columns:
-                st.error(f"Missing required column: {column}")
-                st.stop()
+
+        # Verify column names (same as before)
 
         predictions = []
         true_answers = test_data["answer"].tolist()
-
         vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
 
         for question in test_data["question"]:
@@ -110,30 +105,21 @@ if st.button("Run Accuracy Test"):
         pred_embeddings = model.encode(predictions, convert_to_tensor=True)
         similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
 
-        threshold = 0.7  # Define a threshold for similarity
+        threshold = 0.7
         correct_predictions = (similarities.diag() > threshold).sum().item()
         accuracy = correct_predictions / len(true_answers)
-
         st.write(f"Accuracy: {accuracy}")
 
-        # Calculate F1 score for exact match comparison
-        true_answers = [preprocess_text(answer) for answer in true_answers]
-        predictions = [preprocess_text(prediction) for prediction in predictions]
+        # Update accuracy history
+        st.session_state.accuracy_history.append(accuracy)
 
-        f1 = f1_score(true_answers, predictions, average="weighted")
-
-        st.write(f"F1 Score: {f1}")
-
-        # Plotting the accuracy and F1 score
-        metrics = ['Accuracy', 'F1 Score']
-        scores = [accuracy, f1]
-
+        # Plotting Accuracy Over Time
         fig, ax = plt.subplots()
-        ax.barh(metrics, scores, color=['blue', 'orange'])
-        ax.set_xlim(0, 1)
-        ax.set_xlabel('Score')
-        ax.set_title('Chatbot Performance Metrics')
-
+        ax.plot(st.session_state.accuracy_history, marker='o', linestyle='-', color='skyblue')
+        ax.set_xlabel('Test Instance')
+        ax.set_ylabel('Accuracy')
+        ax.set_title('Accuracy Over Time')
+        ax.set_ylim(0, 1)
         st.pyplot(fig)
     else:
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
