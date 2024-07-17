@@ -10,6 +10,7 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score
 from sentence_transformers import SentenceTransformer, util
 import matplotlib.pyplot as plt
+import os
 
 # --- Configuration ---
 # (Preferably store these as secrets in Streamlit Cloud or a .env file)
@@ -46,6 +47,9 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)  # Add all texts
 
+def preprocess_text(text):
+    return text.strip().lower()
+
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
 
@@ -79,54 +83,60 @@ if prompt := st.chat_input("Your question"):
 
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
-    test_data = pd.read_csv("test.csv")
-    
-    # Display the test data to verify the column names
-    st.write(test_data.head())
-    
-    # Verify column names
-    required_columns = ["question", "answer"]
-    for column in required_columns:
-        if column not in test_data.columns:
-            st.error(f"Missing required column: {column}")
-            st.stop()
+    if os.path.exists("test_data.csv"):
+        test_data = pd.read_csv("test_data.csv")
+        
+        # Display the test data to verify the column names
+        st.write(test_data.head())
+        
+        # Verify column names
+        required_columns = ["question", "answer"]
+        for column in required_columns:
+            if column not in test_data.columns:
+                st.error(f"Missing required column: {column}")
+                st.stop()
 
-    predictions = []
-    true_answers = test_data["answer"].tolist()
+        predictions = []
+        true_answers = test_data["answer"].tolist()
 
-    vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+        vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
 
-    for question in test_data["question"]:
-        prediction = vector_index.query(question, llm=llm)
-        predictions.append(prediction)
+        for question in test_data["question"]:
+            prediction = vector_index.query(question, llm=llm)
+            predictions.append(prediction)
 
-    # Calculate semantic similarity
-    true_embeddings = model.encode(true_answers, convert_to_tensor=True)
-    pred_embeddings = model.encode(predictions, convert_to_tensor=True)
-    similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
+        # Calculate semantic similarity
+        true_embeddings = model.encode(true_answers, convert_to_tensor=True)
+        pred_embeddings = model.encode(predictions, convert_to_tensor=True)
+        similarities = util.pytorch_cos_sim(true_embeddings, pred_embeddings)
 
-    threshold = 0.7  # Define a threshold for similarity
-    correct_predictions = (similarities.diag() > threshold).sum().item()
-    accuracy = correct_predictions / len(true_answers)
+        threshold = 0.7  # Define a threshold for similarity
+        correct_predictions = (similarities.diag() > threshold).sum().item()
+        accuracy = correct_predictions / len(true_answers)
 
-    st.write(f"Accuracy: {accuracy}")
+        st.write(f"Accuracy: {accuracy}")
 
-    # Calculate F1 score for exact match comparison
-    true_answers = [preprocess_text(answer) for answer in true_answers]
-    predictions = [preprocess_text(prediction) for prediction in predictions]
+        # Calculate F1 score for exact match comparison
+        true_answers = [preprocess_text(answer) for answer in true_answers]
+        predictions = [preprocess_text(prediction) for prediction in predictions]
 
-    f1 = f1_score(true_answers, predictions, average="weighted")
+        f1 = f1_score(true_answers, predictions, average="weighted")
 
-    st.write(f"F1 Score: {f1}")
+        st.write(f"F1 Score: {f1}")
 
-    # Plotting the accuracy and F1 score
-    metrics = ['Accuracy', 'F1 Score']
-    scores = [accuracy, f1]
+        # Plotting the accuracy and F1 score
+        metrics = ['Accuracy', 'F1 Score']
+        scores = [accuracy, f1]
 
-    fig, ax = plt.subplots()
-    ax.barh(metrics, scores, color=['blue', 'orange'])
-    ax.set_xlim(0, 1)
-    ax.set_xlabel('Score')
-    ax.set_title('Chatbot Performance Metrics')
+        fig, ax = plt.subplots()
+        ax.barh(metrics, scores, color=['blue', 'orange'])
+        ax.set_xlim(0, 1)
+        ax.set_xlabel('Score')
+        ax.set_title('Chatbot Performance Metrics')
 
-    st.pyplot(fig)
+        st.pyplot(fig)
+    else:
+        st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
+    ```
+
+This script includes the `preprocess_text` function definition before it's used in the accuracy testing section. This should resolve the `NameError` and allow the script to run successfully.
