@@ -139,4 +139,4 @@ if st.button("Run Accuracy Test"):
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
     ```
 
-This script includes the `preprocess_text` function definition before it's used in the accuracy testing section. This should resolve the `NameError` and allow the script to run successfully.
+
