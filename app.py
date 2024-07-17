@@ -1,19 +1,17 @@
 import streamlit as st
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
 from langchain_community.vectorstores import Cassandra
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
 from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
-import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-import pandas as pd
-from sklearn.metrics import accuracy_score
 from sentence_transformers import SentenceTransformer, util
-import matplotlib.pyplot as plt
-import os
-import re
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+import re
 
 # --- Configuration ---
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
@@ -94,9 +92,6 @@ if st.button("Run Accuracy Test"):
     if os.path.exists("test_data.csv"):
         test_data = pd.read_csv("test_data.csv")
         
-        # Display the test data to verify the column names
-        st.write(test_data.head())
-        
         # Verify column names
         required_columns = ["question", "answer"]
         for column in required_columns:
@@ -124,15 +119,14 @@ if st.button("Run Accuracy Test"):
 
         st.write(f"Accuracy: {accuracy}")
 
-        # Plotting the metrics
-        metrics = ['Accuracy', 'Cosine Similarity']
-        scores = [accuracy, similarities.mean().item()]
+        # Example scatter plot for accuracy vs. response time
+        response_times = [1.2, 0.9, 1.5, 2.0, 0.8]  # Example response times in seconds
 
         fig, ax = plt.subplots()
-        ax.bar(metrics, scores, color=['blue', 'orange'])
-        ax.set_ylim(0, 1)
-        ax.set_ylabel('Score')
-        ax.set_title('Chatbot Performance Metrics')
+        ax.scatter(response_times, similarities.diag().tolist(), color='r', marker='o')
+        ax.set_xlabel('Response Time (seconds)')
+        ax.set_ylabel('Cosine Similarity')
+        ax.set_title('Cosine Similarity vs. Response Time')
 
         st.pyplot(fig)
     else:
