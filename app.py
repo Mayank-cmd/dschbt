@@ -7,19 +7,13 @@ import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 import pandas as pd
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score
 from sentence_transformers import SentenceTransformer, util
 import matplotlib.pyplot as plt
 import os
-import re
-import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-
-nltk.download('stopwords')
-nltk.download('wordnet')
 
 # --- Configuration ---
+# (Preferably store these as secrets in Streamlit Cloud or a .env file)
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
 ASTRA_DB_ID = st.secrets["astra_db_id"]
 OPENAI_API_KEY = st.secrets["openai_api_key"]
@@ -32,7 +26,6 @@ embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
-lemmatizer = WordNetLemmatizer()
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
@@ -55,12 +48,7 @@ def add_to_vector_store(raw_text):
     vector_store.add_texts(texts)  # Add all texts
 
 def preprocess_text(text):
-    text = text.strip().lower()
-    text = re.sub(r'\W', ' ', text)  # Remove punctuation
-    text = re.sub(r'\s+', ' ', text)  # Normalize spaces
-    words = text.split()
-    words = [lemmatizer.lemmatize(word) for word in words if word not in stopwords.words('english')]
-    return ' '.join(words)
+    return text.strip().lower()
 
 # --- Streamlit App ---
 st.title("DataScience:GPT - PDF Q&A Chatbot")
@@ -128,7 +116,7 @@ if st.button("Run Accuracy Test"):
 
         st.write(f"Accuracy: {accuracy}")
 
-        # Calculate Precision and Recall for exact match comparison
+        # Calculate F1 score for exact match comparison
         true_answers = [preprocess_text(answer) for answer in true_answers]
         predictions = [preprocess_text(prediction) for prediction in predictions]
 
@@ -139,21 +127,16 @@ if st.button("Run Accuracy Test"):
             st.write(f"Pred: {predictions[i]}")
             st.write("---")
 
-        # Use a simple method to check for exact matches
-        exact_matches = [1 if true == pred else 0 for true, pred in zip(true_answers, predictions)]
-        
-        precision = sum(exact_matches) / len(predictions)
-        recall = sum(exact_matches) / len(true_answers)
+        f1 = f1_score(true_answers, predictions, average="weighted")
 
-        st.write(f"Precision: {precision}")
-        st.write(f"Recall: {recall}")
+        st.write(f"F1 Score: {f1}")
 
-        # Plotting the metrics
-        metrics = ['Accuracy', 'Precision', 'Recall']
-        scores = [accuracy, precision, recall]
+        # Plotting the accuracy and F1 score
+        metrics = ['Accuracy', 'F1 Score']
+        scores = [accuracy, f1]
 
         fig, ax = plt.subplots()
-        ax.barh(metrics, scores, color=['blue', 'orange', 'green'])
+        ax.barh(metrics, scores, color=['blue', 'orange'])
         ax.set_xlim(0, 1)
         ax.set_xlabel('Score')
         ax.set_title('Chatbot Performance Metrics')
