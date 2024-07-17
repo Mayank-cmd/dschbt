@@ -83,8 +83,8 @@ if prompt := st.chat_input("Your question"):
 
 # --- Accuracy Testing ---
 if st.button("Run Accuracy Test"):
-    if os.path.exists("test.csv"):
-        test_data = pd.read_csv("test.csv")
+    if os.path.exists("test_data.csv"):
+        test_data = pd.read_csv("test_data.csv")
         
         # Display the test data to verify the column names
         st.write(test_data.head())
@@ -120,6 +120,13 @@ if st.button("Run Accuracy Test"):
         true_answers = [preprocess_text(answer) for answer in true_answers]
         predictions = [preprocess_text(prediction) for prediction in predictions]
 
+        # Debugging output
+        for i in range(len(true_answers)):
+            st.write(f"Q: {test_data['question'][i]}")
+            st.write(f"True: {true_answers[i]}")
+            st.write(f"Pred: {predictions[i]}")
+            st.write("---")
+
         f1 = f1_score(true_answers, predictions, average="weighted")
 
         st.write(f"F1 Score: {f1}")
@@ -137,5 +144,3 @@ if st.button("Run Accuracy Test"):
         st.pyplot(fig)
     else:
         st.error("The file 'test_data.csv' was not found. Please upload the file and try again.")
-
-
