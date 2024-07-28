@@ -65,27 +65,26 @@ if not st.session_state.logged_in:
         if login(username, password):
             st.session_state.logged_in = True
             st.experimental_set_query_params(page="home")
-            st.experimental_rerun()
         else:
             st.error("Invalid username or password")
 else:
     # Navigation buttons
     query_params = st.experimental_get_query_params()
-    if "page" not in st.session_state:
-        st.session_state.page = query_params.get("page", ["home"])[0]
+    if "page" not in query_params:
+        query_params["page"] = ["home"]
 
-    def go_to_page(page):
-        st.session_state.page = page
-        st.experimental_set_query_params(page=page)
-        st.experimental_rerun()
+    page = query_params["page"][0]
 
-    if st.session_state.page == "home":
+    def go_to_page(page_name):
+        st.experimental_set_query_params(page=page_name)
+
+    if page == "home":
         if st.button("Go to Chatbot"):
             go_to_page("chatbot")
         if st.button("Ask ChatGPT"):
             go_to_page("chatgpt")
 
-    elif st.session_state.page == "chatbot":
+    elif page == "chatbot":
         st.header("Chatbot - Ask Questions About Your PDF")
         # File Upload
         uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
@@ -118,7 +117,7 @@ else:
         if st.button("Back to Home"):
             go_to_page("home")
 
-    elif st.session_state.page == "chatgpt":
+    elif page == "chatgpt":
         st.header("ChatGPT - Ask Any Question")
         # Chat Interface
         if "gpt_messages" not in st.session_state:
