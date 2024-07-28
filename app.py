@@ -92,7 +92,8 @@ else:
 
     st.sidebar.header("Chat History")
     for chat_id, messages in st.session_state.chats.items():
-        if st.sidebar.button(chat_id):
+        chat_label = f"Chat {list(st.session_state.chats.keys()).index(chat_id) + 1}"
+        if st.sidebar.button(chat_label):
             st.session_state.current_chat = chat_id
             go_to_page("chatbot")
     
@@ -169,4 +170,3 @@ else:
 
         if st.button("Back to Home"):
             go_to_page("home")
-
