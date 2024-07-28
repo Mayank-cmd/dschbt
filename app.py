@@ -53,15 +53,20 @@ if "page" not in st.session_state:
 
 def go_to_home():
     st.session_state.page = "home"
-    st.experimental_rerun()
+    st.experimental_set_query_params(page="home")
 
 def go_to_chatbot():
     st.session_state.page = "chatbot"
-    st.experimental_rerun()
+    st.experimental_set_query_params(page="chatbot")
 
 def go_to_chatgpt():
     st.session_state.page = "chatgpt"
-    st.experimental_rerun()
+    st.experimental_set_query_params(page="chatgpt")
+
+# Check if there are query params and update page state
+query_params = st.experimental_get_query_params()
+if "page" in query_params:
+    st.session_state.page = query_params["page"][0]
 
 if st.session_state.page == "home":
     if st.button("Go to Chatbot"):
