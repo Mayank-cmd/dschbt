@@ -31,7 +31,6 @@ def load_pdf(uploaded_file):
             raw_text += content
     return raw_text
 
-
 def add_to_vector_store(raw_text):
     text_splitter = CharacterTextSplitter(
         separator="\n",
@@ -65,36 +64,26 @@ if not st.session_state.logged_in:
     if st.button("Login"):
         if login(username, password):
             st.session_state.logged_in = True
+            st.experimental_set_query_params(page="home")
             st.experimental_rerun()
         else:
             st.error("Invalid username or password")
 else:
     # Navigation buttons
-    if "page" not in st.session_state:
-        st.session_state.page = "home"
-
-    def go_to_home():
-        st.session_state.page = "home"
-        st.experimental_set_query_params(page="home")
-
-    def go_to_chatbot():
-        st.session_state.page = "chatbot"
-        st.experimental_set_query_params(page="chatbot")
-
-    def go_to_chatgpt():
-        st.session_state.page = "chatgpt"
-        st.experimental_set_query_params(page="chatgpt")
-
-    # Check if there are query params and update page state
     query_params = st.experimental_get_query_params()
-    if "page" in query_params:
-        st.session_state.page = query_params["page"][0]
+    if "page" not in st.session_state:
+        st.session_state.page = query_params.get("page", ["home"])[0]
+
+    def go_to_page(page):
+        st.session_state.page = page
+        st.experimental_set_query_params(page=page)
+        st.experimental_rerun()
 
     if st.session_state.page == "home":
         if st.button("Go to Chatbot"):
-            go_to_chatbot()
+            go_to_page("chatbot")
         if st.button("Ask ChatGPT"):
-            go_to_chatgpt()
+            go_to_page("chatgpt")
 
     elif st.session_state.page == "chatbot":
         st.header("Chatbot - Ask Questions About Your PDF")
@@ -127,7 +116,7 @@ else:
                 st.session_state.messages.append({"role": "assistant", "content": answer})
 
         if st.button("Back to Home"):
-            go_to_home()
+            go_to_page("home")
 
     elif st.session_state.page == "chatgpt":
         st.header("ChatGPT - Ask Any Question")
@@ -152,4 +141,4 @@ else:
                 st.session_state.gpt_messages.append({"role": "assistant", "content": gpt_answer})
 
         if st.button("Back to Home"):
-            go_to_home()
+            go_to_page("home")
