@@ -53,12 +53,15 @@ if "page" not in st.session_state:
 
 def go_to_home():
     st.session_state.page = "home"
+    st.experimental_rerun()
 
 def go_to_chatbot():
     st.session_state.page = "chatbot"
+    st.experimental_rerun()
 
 def go_to_chatgpt():
     st.session_state.page = "chatgpt"
+    st.experimental_rerun()
 
 if st.session_state.page == "home":
     if st.button("Go to Chatbot"):
