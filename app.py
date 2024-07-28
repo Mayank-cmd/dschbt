@@ -7,7 +7,6 @@ import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 
-
 # --- Configuration ---
 # (Preferably store these as secrets in Streamlit Cloud or a .env file)
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
@@ -43,91 +42,114 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)  # Add all texts
 
+# --- Authentication ---
+def login(username, password):
+    # Example hardcoded credentials
+    users = {
+        "user1": "password1",
+        "user2": "password2"
+    }
+    return users.get(username) == password
 
 # --- Streamlit App ---
 st.title("DocuBot - Ask Your Questions!!")
 
-# Navigation buttons
-if "page" not in st.session_state:
-    st.session_state.page = "home"
+# Login
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-def go_to_home():
-    st.session_state.page = "home"
-    st.experimental_set_query_params(page="home")
+if not st.session_state.logged_in:
+    st.header("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if login(username, password):
+            st.session_state.logged_in = True
+            st.experimental_rerun()
+        else:
+            st.error("Invalid username or password")
+else:
+    # Navigation buttons
+    if "page" not in st.session_state:
+        st.session_state.page = "home"
 
-def go_to_chatbot():
-    st.session_state.page = "chatbot"
-    st.experimental_set_query_params(page="chatbot")
+    def go_to_home():
+        st.session_state.page = "home"
+        st.experimental_set_query_params(page="home")
 
-def go_to_chatgpt():
-    st.session_state.page = "chatgpt"
-    st.experimental_set_query_params(page="chatgpt")
+    def go_to_chatbot():
+        st.session_state.page = "chatbot"
+        st.experimental_set_query_params(page="chatbot")
 
-# Check if there are query params and update page state
-query_params = st.experimental_get_query_params()
-if "page" in query_params:
-    st.session_state.page = query_params["page"][0]
+    def go_to_chatgpt():
+        st.session_state.page = "chatgpt"
+        st.experimental_set_query_params(page="chatgpt")
 
-if st.session_state.page == "home":
-    if st.button("Go to Chatbot"):
-        go_to_chatbot()
-    if st.button("Ask ChatGPT"):
-        go_to_chatgpt()
+    # Check if there are query params and update page state
+    query_params = st.experimental_get_query_params()
+    if "page" in query_params:
+        st.session_state.page = query_params["page"][0]
 
-elif st.session_state.page == "chatbot":
-    st.header("Chatbot - Ask Questions About Your PDF")
-    # File Upload
-    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-    if uploaded_file is not None:
-        raw_text = load_pdf(uploaded_file)
-        add_to_vector_store(raw_text)
-        st.success("PDF processed and added to the vector store!")
+    if st.session_state.page == "home":
+        if st.button("Go to Chatbot"):
+            go_to_chatbot()
+        if st.button("Ask ChatGPT"):
+            go_to_chatgpt()
 
-    # Chat Interface
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
+    elif st.session_state.page == "chatbot":
+        st.header("Chatbot - Ask Questions About Your PDF")
+        # File Upload
+        uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+        if uploaded_file is not None:
+            raw_text = load_pdf(uploaded_file)
+            add_to_vector_store(raw_text)
+            st.success("PDF processed and added to the vector store!")
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        # Chat Interface
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+            st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
 
-    if prompt := st.chat_input("Your question"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        if prompt := st.chat_input("Your question"):
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-        with st.chat_message("assistant"):
-            vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-            answer = vector_index.query(prompt, llm=llm)
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
-    
-    if st.button("Back to Home"):
-        go_to_home()
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-elif st.session_state.page == "chatgpt":
-    st.header("ChatGPT - Ask Any Question")
-    # Chat Interface
-    if "gpt_messages" not in st.session_state:
-        st.session_state.gpt_messages = []
-        st.session_state.gpt_messages.append({"role": "assistant", "content": "Ask me anything!"})
+            with st.chat_message("assistant"):
+                vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+                answer = vector_index.query(prompt, llm=llm)
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
 
-    for message in st.session_state.gpt_messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        if st.button("Back to Home"):
+            go_to_home()
 
-    if gpt_prompt := st.chat_input("Your question"):
-        st.session_state.gpt_messages.append({"role": "user", "content": gpt_prompt})
+    elif st.session_state.page == "chatgpt":
+        st.header("ChatGPT - Ask Any Question")
+        # Chat Interface
+        if "gpt_messages" not in st.session_state:
+            st.session_state.gpt_messages = []
+            st.session_state.gpt_messages.append({"role": "assistant", "content": "Ask me anything!"})
 
-        with st.chat_message("user"):
-            st.markdown(gpt_prompt)
+        for message in st.session_state.gpt_messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-        with st.chat_message("assistant"):
-            gpt_answer = llm(gpt_prompt)
-            st.markdown(gpt_answer)
-            st.session_state.gpt_messages.append({"role": "assistant", "content": gpt_answer})
-    
-    if st.button("Back to Home"):
-        go_to_home()
+        if gpt_prompt := st.chat_input("Your question"):
+            st.session_state.gpt_messages.append({"role": "user", "content": gpt_prompt})
+
+            with st.chat_message("user"):
+                st.markdown(gpt_prompt)
+
+            with st.chat_message("assistant"):
+                gpt_answer = llm(gpt_prompt)
+                st.markdown(gpt_answer)
+                st.session_state.gpt_messages.append({"role": "assistant", "content": gpt_answer})
+
+        if st.button("Back to Home"):
+            go_to_home()
