@@ -57,7 +57,8 @@ if "current_chat" not in st.session_state:
 # Navigation functions
 def go_to_page(page_name):
     st.session_state.current_page = page_name
-    st.experimental_rerun()
+    st.experimental_set_query_params(page=page_name)
+    # No need to call st.experimental_rerun() explicitly here, as Streamlit should handle it.
 
 def start_new_chat():
     chat_id = str(uuid.uuid4())
