@@ -1,32 +1,32 @@
 import streamlit as st
-import uuid
 from langchain_community.vectorstores import Cassandra
 from langchain.indexes.vectorstore import VectorStoreIndexWrapper
 from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
+import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-import cassio
+import uuid
 
 # --- Configuration ---
-ASTRA_DB_TOKEN = 'your_astra_db_token'
-ASTRA_DB_ID = 'your_astra_db_id'
-OPENAI_API_KEY = 'your_openai_api_key'
-TABLE_NAME = 'qa_mini_demo'
+# (Preferably store these as secrets in Streamlit Cloud or a .env file)
+ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
+ASTRA_DB_ID = st.secrets["astra_db_id"]
+OPENAI_API_KEY = st.secrets["openai_api_key"]
+TABLE_NAME = "qa_mini_demo"
 
 # --- Initialization ---
-
 cassio.init(token=ASTRA_DB_TOKEN, database_id=ASTRA_DB_ID)
 llm = OpenAI(openai_api_key=OPENAI_API_KEY)
 embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
+vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
     raw_text = ''
     pdfreader = PdfReader(uploaded_file)
-    for page in pdfreader.pages:
+    for i, page in enumerate(pdfreader.pages):
         content = page.extract_text()
         if content:
             raw_text += content
@@ -34,7 +34,7 @@ def load_pdf(uploaded_file):
 
 def add_to_vector_store(raw_text):
     text_splitter = CharacterTextSplitter(
-        separator='\n',
+        separator="\n",
         chunk_size=800,
         chunk_overlap=200,
         length_function=len,
@@ -42,70 +42,131 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)  # Add all texts
 
-# --- Streamlit App State Initialization ---
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'home'
+# --- Authentication ---
+def login(username, password):
+    # Example hardcoded credentials
+    users = {
+        "user1": "password1",
+        "user2": "password2"
+    }
+    return users.get(username) == password
 
-if 'chats' not in st.session_state:
-    st.session_state.chats = {}
+# --- Streamlit App ---
+st.title("DocuBot - Ask Your Questions!!")
 
-# --- Navigation Function ---
-def navigate_to(page):
-    st.session_state.current_page = page
+# Login
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-def start_new_chat():
-    chat_id = str(uuid.uuid4())
-    st.session_state.chats[chat_id] = []
-    st.session_state.current_chat = chat_id
-    navigate_to('chatbot')
+if not st.session_state.logged_in:
+    st.header("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if login(username, password):
+            st.session_state.logged_in = True
+            st.experimental_set_query_params(page="home")
+        else:
+            st.error("Invalid username or password")
+else:
+    # Navigation buttons
+    query_params = st.experimental_get_query_params()
+    if "page" not in query_params:
+        query_params["page"] = ["home"]
 
-# --- Sidebar for Chat History and New Chat ---
-with st.sidebar:
-    st.title("Chat History")
+    page = query_params["page"][0]
+
+    def go_to_page(page_name):
+        st.experimental_set_query_params(page=page_name)
+    
+    def start_new_chat():
+        chat_id = str(uuid.uuid4())
+        st.session_state.current_chat = chat_id
+        st.session_state.chats[chat_id] = []
+        go_to_page("chatbot")
+
+    if "chats" not in st.session_state:
+        st.session_state.chats = {}
+    if "current_chat" not in st.session_state:
+        st.session_state.current_chat = None
+
+    st.sidebar.header("Chat History")
     for chat_id, messages in st.session_state.chats.items():
-        if st.button(f"Chat {chat_id[:8]}"):
+        chat_label = f"Chat {list(st.session_state.chats.keys()).index(chat_id) + 1}"
+        if st.sidebar.button(chat_label):
             st.session_state.current_chat = chat_id
-            navigate_to('chatbot')
-    if st.button("New Chat"):
-        start_new_chat()
+            go_to_page("chatbot")
+    
+    st.sidebar.button("New Chat", on_click=start_new_chat)
 
-# --- Main App Views ---
-if st.session_state.current_page == 'home':
-    st.title("Home Page")
-    st.write("Welcome to DocuBot!")
-    if st.button("Go to Chatbot"):
-        start_new_chat()
-    if st.button("Ask ChatGPT"):
-        navigate_to('chatgpt')
+    if page == "home":
+        if st.button("Go to Chatbot"):
+            start_new_chat()
+        if st.button("Ask ChatGPT"):
+            go_to_page("chatgpt")
 
-elif st.session_state.current_page == 'chatbot':
-    st.title("Chatbot Page")
-    st.write("Ask questions about your uploaded PDFs.")
-    if "current_chat" in st.session_state and st.session_state.current_chat in st.session_state.chats:
-        chat_id = st.session_state.current_chat
-        messages = st.session_state.chats[chat_id]
+    elif page == "chatbot":
+        st.header("Chatbot - Ask Questions About Your PDF")
+
+        current_chat = st.session_state.current_chat
+        if current_chat not in st.session_state.chats:
+            st.session_state.chats[current_chat] = []
 
         # Display previous messages
-        for message in messages:
-            role = message['role']
-            content = message['content']
-            st.markdown(f"**{role}:** {content}")
+        for message in st.session_state.chats[current_chat]:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-        # Input for new message
-        prompt = st.text_input("Your question")
-        if st.button("Send"):
-            vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-            answer = vector_index.query(prompt, llm=llm)
-            st.session_state.chats[chat_id].append({"role": "user", "content": prompt})
-            st.session_state.chats[chat_id].append({"role": "assistant", "content": answer})
-            st.experimental_rerun()  # Refresh to show new messages
-    st.button("Back to Home", on_click=lambda: navigate_to('home'))
+        # File Upload
+        uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+        if uploaded_file is not None:
+            raw_text = load_pdf(uploaded_file)
+            add_to_vector_store(raw_text)
+            st.success("PDF processed and added to the vector store!")
 
-elif st.session_state.current_page == 'chatgpt':
-    st.title("ChatGPT Page")
-    st.write("Ask any question.")
-    gpt_prompt = st.text_input("Your question for ChatGPT")
-    if st.button("Send"):
-        gpt_answer = llm(gpt_prompt)
-        st.write(gpt_answer)
-    st.button("Back to Home", on_click=lambda: navigate_to('home'))
+        # Chat Interface
+        if prompt := st.chat_input("Your question"):
+            user_message = {"role": "user", "content": prompt}
+            st.session_state.chats[current_chat].append(user_message)
+
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+                answer = vector_index.query(prompt, llm=llm)
+                assistant_message = {"role": "assistant", "content": answer}
+                st.markdown(answer)
+                st.session_state.chats[current_chat].append(assistant_message)
+
+        if st.button("Back to Home"):
+            go_to_page("home")
+
+    elif page == "chatgpt":
+        st.header("ChatGPT - Ask Any Question")
+        
+        current_chat = st.session_state.current_chat
+        if current_chat not in st.session_state.chats:
+            st.session_state.chats[current_chat] = []
+
+        # Display previous messages
+        for message in st.session_state.chats[current_chat]:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Chat Interface
+        if gpt_prompt := st.chat_input("Your question"):
+            user_message = {"role": "user", "content": gpt_prompt}
+            st.session_state.chats[current_chat].append(user_message)
+
+            with st.chat_message("user"):
+                st.markdown(gpt_prompt)
+
+            with st.chat_message("assistant"):
+                gpt_answer = llm(gpt_prompt)
+                assistant_message = {"role": "assistant", "content": gpt_answer}
+                st.markdown(gpt_answer)
+                st.session_state.chats[current_chat].append(assistant_message)
+
+        if st.button("Back to Home"):
+            go_to_page("home")
