@@ -1,14 +1,10 @@
-streamlit
-langchain
-langchain-community
-cassandra-driver   # or "datastax-astra" if using Astra DB directly
-PyPDF2
-openai
-tiktoken
-python-dotenv       # If using a .env file for secrets (recommended)
-cassio
-pandas
-scikit-learn
-sentence-transformers
-matplotlib
-nltk
+streamlit>=1.20.0
+langchain>=0.0.13
+langchain-community>=0.0.9
+cassandra-driver>=3.25.0   # Use "datastax-astra" if Astra DB is used directly
+PyPDF2>=3.0.0
+openai>=0.27.8
+tiktoken>=0.3.0
+python-dotenv>=1.0.0
+cassio>=0.0.3
+
