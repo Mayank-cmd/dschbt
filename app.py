@@ -15,15 +15,11 @@ OPENAI_API_KEY = 'your_openai_api_key'
 TABLE_NAME = 'qa_mini_demo'
 
 # --- Initialization ---
-try:
-    # Attempt to initialize the connection to Astra DB
-    cassio.init(token=ASTRA_DB_TOKEN, database_id=ASTRA_DB_ID)
-    llm = OpenAI(openai_api_key=OPENAI_API_KEY)
-    embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-    vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
-except ValueError as e:
-    st.error(f"Failed to initialize Cassandra connection: {str(e)}")
-    st.stop()
+
+cassio.init(token=ASTRA_DB_TOKEN, database_id=ASTRA_DB_ID)
+llm = OpenAI(openai_api_key=OPENAI_API_KEY)
+embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
 
 # --- Helper Functions ---
