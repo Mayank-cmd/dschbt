@@ -1,4 +1,4 @@
-streamlit>=1.20.0
+streamlit>=1.36.0
 langchain>=0.0.13
 langchain-community>=0.0.9
 cassandra-driver>=3.25.0   # Use "datastax-astra" if Astra DB is used directly
