@@ -18,6 +18,7 @@ TABLE_NAME = "qa_mini_demo"
 cassio.init(token=ASTRA_DB_TOKEN, database_id=ASTRA_DB_ID)
 llm = OpenAI(openai_api_key=OPENAI_API_KEY)
 embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
 # --- Helper Functions ---
@@ -40,42 +41,45 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)
 
+def go_to_page(page_name):
+    st.experimental_set_query_params(page=page_name)
+
+def start_new_chat():
+    chat_id = str(uuid.uuid4())
+    st.session_state.current_chat = chat_id
+    st.session_state.chats[chat_id] = []
+    go_to_page("chatbot")
+
 # --- App State Initialization ---
 if "chats" not in st.session_state:
     st.session_state.chats = {}
 if "current_chat" not in st.session_state:
     st.session_state.current_chat = None
-if "page" not in st.session_state:
-    st.session_state.page = "home"
 
 # --- Streamlit App ---
 st.title("DocuBot - Ask Your Questions!!")
 
 # Sidebar for Chat History and Navigation
 st.sidebar.header("Chat History")
-for chat_id in st.session_state.chats:
-    chat_label = f"Chat {list(st.session_state.chats.keys()).index(chat_id) + 1}"
-    if st.sidebar.button(chat_label):
-        st.session_state.current_chat = chat_id
-        st.session_state.page = "chatbot"
+for chat_id, messages in st.session_state.chats.items():
+    if messages:
+        last_message = messages[-1]
+        question_text = last_message["content"]
+        if st.sidebar.button(question_text):
+            st.session_state.current_chat = chat_id
+            go_to_page("chatbot")
 
-if st.sidebar.button("New Chat"):
-    chat_id = str(uuid.uuid4())
-    st.session_state.current_chat = chat_id
-    st.session_state.chats[chat_id] = []
-    st.session_state.page = "chatbot"
+st.sidebar.button("New Chat", on_click=start_new_chat)
 
 # Main Page Navigation
-page = st.session_state.page
+query_params = st.experimental_get_query_params()
+page = query_params.get("page", ["home"])[0]
 
 if page == "home":
     if st.button("Go to Chatbot"):
-        chat_id = str(uuid.uuid4())
-        st.session_state.current_chat = chat_id
-        st.session_state.chats[chat_id] = []
-        st.session_state.page = "chatbot"
+        start_new_chat()
     if st.button("Ask ChatGPT"):
-        st.session_state.page = "chatgpt"
+        go_to_page("chatgpt")
 
 elif page == "chatbot":
     st.header("Chatbot - Ask Questions About Your PDF")
@@ -112,7 +116,7 @@ elif page == "chatbot":
             st.session_state.chats[current_chat].append(assistant_message)
 
     if st.button("Back to Home"):
-        st.session_state.page = "home"
+        go_to_page("home")
 
 elif page == "chatgpt":
     st.header("ChatGPT - Ask Any Question")
@@ -141,4 +145,4 @@ elif page == "chatgpt":
             st.session_state.chats[current_chat].append(assistant_message)
 
     if st.button("Back to Home"):
-        st.session_state.page = "home"
+        go_to_page("home")
