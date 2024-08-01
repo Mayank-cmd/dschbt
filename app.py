@@ -40,15 +40,6 @@ def add_to_vector_store(raw_text):
     texts = text_splitter.split_text(raw_text)
     vector_store.add_texts(texts)
 
-def go_to_page(page_name):
-    st.session_state.page = page_name
-
-def start_new_chat():
-    chat_id = str(uuid.uuid4())
-    st.session_state.current_chat = chat_id
-    st.session_state.chats[chat_id] = []
-    go_to_page("chatbot")
-
 # --- App State Initialization ---
 if "chats" not in st.session_state:
     st.session_state.chats = {}
@@ -66,19 +57,25 @@ for chat_id in st.session_state.chats:
     chat_label = f"Chat {list(st.session_state.chats.keys()).index(chat_id) + 1}"
     if st.sidebar.button(chat_label):
         st.session_state.current_chat = chat_id
-        go_to_page("chatbot")
+        st.session_state.page = "chatbot"
 
 if st.sidebar.button("New Chat"):
-    start_new_chat()
+    chat_id = str(uuid.uuid4())
+    st.session_state.current_chat = chat_id
+    st.session_state.chats[chat_id] = []
+    st.session_state.page = "chatbot"
 
 # Main Page Navigation
 page = st.session_state.page
 
 if page == "home":
     if st.button("Go to Chatbot"):
-        start_new_chat()
+        chat_id = str(uuid.uuid4())
+        st.session_state.current_chat = chat_id
+        st.session_state.chats[chat_id] = []
+        st.session_state.page = "chatbot"
     if st.button("Ask ChatGPT"):
-        go_to_page("chatgpt")
+        st.session_state.page = "chatgpt"
 
 elif page == "chatbot":
     st.header("Chatbot - Ask Questions About Your PDF")
@@ -115,7 +112,7 @@ elif page == "chatbot":
             st.session_state.chats[current_chat].append(assistant_message)
 
     if st.button("Back to Home"):
-        go_to_page("home")
+        st.session_state.page = "home"
 
 elif page == "chatgpt":
     st.header("ChatGPT - Ask Any Question")
@@ -144,4 +141,4 @@ elif page == "chatgpt":
             st.session_state.chats[current_chat].append(assistant_message)
 
     if st.button("Back to Home"):
-        go_to_page("home")
+        st.session_state.page = "home"
