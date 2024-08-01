@@ -59,6 +59,9 @@ if "current_chat" not in st.session_state:
 # --- Streamlit App ---
 st.title("DocuBot - Ask Your Questions!!")
 
+# Create a row with equal-sized columns for buttons
+col1, col2 = st.columns([1, 1])
+
 # Sidebar for Chat History and Navigation
 st.sidebar.header("Chat History")
 for chat_id, messages in st.session_state.chats.items():
@@ -76,10 +79,13 @@ query_params = st.experimental_get_query_params()
 page = query_params.get("page", ["home"])[0]
 
 if page == "home":
-    if st.button("Go to Chatbot"):
-        start_new_chat()
-    if st.button("Ask ChatGPT"):
-        go_to_page("chatgpt")
+    with col1:
+        if st.button("Go to Chatbot"):
+            start_new_chat()
+    
+    with col2:
+        if st.button("Ask ChatGPT"):
+            go_to_page("chatgpt")
 
 elif page == "chatbot":
     st.header("Chatbot - Ask Questions About Your PDF")
