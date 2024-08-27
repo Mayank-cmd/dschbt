@@ -6,9 +6,10 @@ from langchain.embeddings import OpenAIEmbeddings
 import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-import uuid
+
 
 # --- Configuration ---
+# (Preferably store these as secrets in Streamlit Cloud or a .env file)
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
 ASTRA_DB_ID = st.secrets["astra_db_id"]
 OPENAI_API_KEY = st.secrets["openai_api_key"]
@@ -25,11 +26,12 @@ vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 def load_pdf(uploaded_file):
     raw_text = ''
     pdfreader = PdfReader(uploaded_file)
-    for page in pdfreader.pages:
+    for i, page in enumerate(pdfreader.pages):
         content = page.extract_text()
         if content:
             raw_text += content
     return raw_text
+
 
 def add_to_vector_store(raw_text):
     text_splitter = CharacterTextSplitter(
@@ -39,116 +41,38 @@ def add_to_vector_store(raw_text):
         length_function=len,
     )
     texts = text_splitter.split_text(raw_text)
-    vector_store.add_texts(texts)
-
-def go_to_page(page_name):
-    st.experimental_set_query_params(page=page_name)
-
-def start_new_chat():
-    chat_id = str(uuid.uuid4())
-    st.session_state.current_chat = chat_id
-    st.session_state.chats[chat_id] = []
-    go_to_page("chatbot")
-
-# --- App State Initialization ---
-if "chats" not in st.session_state:
-    st.session_state.chats = {}
-if "current_chat" not in st.session_state:
-    st.session_state.current_chat = None
+    vector_store.add_texts(texts)  # Add all texts
 
 # --- Streamlit App ---
 st.title("DocuBot - Ask Your Questions!!")
 
-# Create a row with equal-sized columns for buttons
-col1, col2 = st.columns([1, 1])
+# File Upload
+uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+if uploaded_file is not None:
+    raw_text = load_pdf(uploaded_file)
+    add_to_vector_store(raw_text)
+    st.success("PDF processed and added to the vector store!")
 
-# Sidebar for Chat History and Navigation
-st.sidebar.header("Chat History")
-for chat_id, messages in st.session_state.chats.items():
-    if messages:
-        last_message = messages[-1]
-        question_text = last_message["content"]
-        if st.sidebar.button(question_text):
-            st.session_state.current_chat = chat_id
-            go_to_page("chatbot")
+# Initialize chat history in session state (if not already initialized)
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-st.sidebar.button("New Chat", on_click=start_new_chat)
+# Chat Interface
+# Display chat history from session state
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Main Page Navigation
-query_params = st.experimental_get_query_params()
-page = query_params.get("page", ["home"])[0]
+if prompt := st.chat_input("Your question"):
+    # Append user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-if page == "home":
-    with col1:
-        if st.button("Go to Chatbot"):
-            start_new_chat()
-    
-    with col2:
-        if st.button("Ask ChatGPT"):
-            go_to_page("chatgpt")
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-elif page == "chatbot":
-    st.header("Chatbot - Ask Questions About Your PDF")
-
-    current_chat = st.session_state.current_chat
-    if current_chat not in st.session_state.chats:
-        st.session_state.chats[current_chat] = []
-
-    # Display previous messages
-    for message in st.session_state.chats[current_chat]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # File Upload
-    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
-    if uploaded_file is not None:
-        raw_text = load_pdf(uploaded_file)
-        add_to_vector_store(raw_text)
-        st.success("PDF processed and added to the vector store!")
-
-    # Chat Interface
-    if prompt := st.chat_input("Your question"):
-        user_message = {"role": "user", "content": prompt}
-        st.session_state.chats[current_chat].append(user_message)
-
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-            answer = vector_index.query(prompt, llm=llm)
-            assistant_message = {"role": "assistant", "content": answer}
-            st.markdown(answer)
-            st.session_state.chats[current_chat].append(assistant_message)
-
-    if st.button("Back to Home"):
-        go_to_page("home")
-
-elif page == "chatgpt":
-    st.header("ChatGPT - Ask Any Question")
-
-    current_chat = st.session_state.current_chat
-    if current_chat not in st.session_state.chats:
-        st.session_state.chats[current_chat] = []
-
-    # Display previous messages
-    for message in st.session_state.chats[current_chat]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    # Chat Interface
-    if gpt_prompt := st.chat_input("Your question"):
-        user_message = {"role": "user", "content": gpt_prompt}
-        st.session_state.chats[current_chat].append(user_message)
-
-        with st.chat_message("user"):
-            st.markdown(gpt_prompt)
-
-        with st.chat_message("assistant"):
-            gpt_answer = llm(gpt_prompt)
-            assistant_message = {"role": "assistant", "content": gpt_answer}
-            st.markdown(gpt_answer)
-            st.session_state.chats[current_chat].append(assistant_message)
-
-    if st.button("Back to Home"):
-        go_to_page("home")
+    with st.chat_message("assistant"):
+        vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
+        answer = vector_index.query(prompt, llm=llm)
+        st.markdown(answer)
+        # Append assistant message to chat history
+        st.session_state.messages.append({"role": "assistant", "content": answer})
