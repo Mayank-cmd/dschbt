@@ -6,8 +6,7 @@ from langchain.embeddings import OpenAIEmbeddings
 import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-import speech_recognition as sr
-import pyttsx3
+from google.cloud import texttospeech
 
 # --- Configuration ---
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
@@ -23,27 +22,26 @@ embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
 # --- VoiceBot Setup ---
-recognizer = sr.Recognizer()
-tts_engine = pyttsx3.init()
-
-def listen_to_user():
-    with sr.Microphone() as source:
-        st.write("Listening for your question...")
-        audio = recognizer.listen(source)
-        try:
-            query = recognizer.recognize_google(audio)
-            st.write(f"You said: {query}")
-            return query
-        except sr.UnknownValueError:
-            st.write("Sorry, I could not understand your speech.")
-            return None
-        except sr.RequestError:
-            st.write("Could not request results; check your network connection.")
-            return None
-
 def speak_text(text):
-    tts_engine.say(text)
-    tts_engine.runAndWait()
+    client = texttospeech.TextToSpeechClient()
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="en-US",
+        ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+    )
+
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3
+    )
+
+    response = client.synthesize_speech(
+        input=synthesis_input, voice=voice, audio_config=audio_config
+    )
+
+    with open("output.mp3", "wb") as out:
+        out.write(response.audio_content)
+        st.audio("output.mp3")
 
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
