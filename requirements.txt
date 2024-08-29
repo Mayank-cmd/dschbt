@@ -7,4 +7,5 @@ openai>=0.27.8
 tiktoken>=0.3.0
 python-dotenv>=1.0.0
 cassio>=0.0.3
-
+speechrecognition 
+pyttsx3
