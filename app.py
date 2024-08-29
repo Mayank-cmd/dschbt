@@ -6,10 +6,10 @@ from langchain.embeddings import OpenAIEmbeddings
 import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-
+import speech_recognition as sr
+import pyttsx3
 
 # --- Configuration ---
-# (Preferably store these as secrets in Streamlit Cloud or a .env file)
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
 ASTRA_DB_ID = st.secrets["astra_db_id"]
 OPENAI_API_KEY = st.secrets["openai_api_key"]
@@ -22,6 +22,29 @@ embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
+# --- VoiceBot Setup ---
+recognizer = sr.Recognizer()
+tts_engine = pyttsx3.init()
+
+def listen_to_user():
+    with sr.Microphone() as source:
+        st.write("Listening for your question...")
+        audio = recognizer.listen(source)
+        try:
+            query = recognizer.recognize_google(audio)
+            st.write(f"You said: {query}")
+            return query
+        except sr.UnknownValueError:
+            st.write("Sorry, I could not understand your speech.")
+            return None
+        except sr.RequestError:
+            st.write("Could not request results; check your network connection.")
+            return None
+
+def speak_text(text):
+    tts_engine.say(text)
+    tts_engine.runAndWait()
+
 # --- Helper Functions ---
 def load_pdf(uploaded_file):
     raw_text = ''
@@ -31,7 +54,6 @@ def load_pdf(uploaded_file):
         if content:
             raw_text += content
     return raw_text
-
 
 def add_to_vector_store(raw_text):
     text_splitter = CharacterTextSplitter(
@@ -53,26 +75,32 @@ if uploaded_file is not None:
     add_to_vector_store(raw_text)
     st.success("PDF processed and added to the vector store!")
 
-# Initialize chat history in session state (if not already initialized)
+# Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
+    st.session_state.messages.append({"role": "assistant", "content": "Ask me questions about your uploaded PDF!"})
 
-# Chat Interface
-# Display chat history from session state
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Your question"):
-    # Append user message to chat history
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# Voice Input Option
+use_voice = st.checkbox("Use Voice Input")
+
+if use_voice:
+    query = listen_to_user()
+else:
+    query = st.chat_input("Your question")
+
+if query:
+    st.session_state.messages.append({"role": "user", "content": query})
 
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(query)
 
     with st.chat_message("assistant"):
         vector_index = VectorStoreIndexWrapper(vectorstore=vector_store)
-        answer = vector_index.query(prompt, llm=llm)
+        answer = vector_index.query(query, llm=llm)
         st.markdown(answer)
-        # Append assistant message to chat history
         st.session_state.messages.append({"role": "assistant", "content": answer})
+        speak_text(answer)  # Speak out the response
