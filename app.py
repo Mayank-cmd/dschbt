@@ -7,6 +7,7 @@ import cassio
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from google.cloud import texttospeech
+import speech_recognition as sr
 
 # --- Configuration ---
 ASTRA_DB_TOKEN = st.secrets["astra_db_token"]
@@ -22,6 +23,23 @@ embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 vector_store = Cassandra(embedding=embedding, table_name=TABLE_NAME)
 
 # --- VoiceBot Setup ---
+recognizer = sr.Recognizer()
+
+def listen_to_user():
+    with sr.Microphone() as source:
+        st.write("Listening for your question...")
+        audio = recognizer.listen(source)
+        try:
+            query = recognizer.recognize_google(audio)
+            st.write(f"You said: {query}")
+            return query
+        except sr.UnknownValueError:
+            st.write("Sorry, I could not understand your speech.")
+            return None
+        except sr.RequestError:
+            st.write("Could not request results; check your network connection.")
+            return None
+
 def speak_text(text):
     client = texttospeech.TextToSpeechClient()
     synthesis_input = texttospeech.SynthesisInput(text=text)
