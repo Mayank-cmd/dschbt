@@ -1,13 +1,7 @@
-streamlit>=1.36.0
-langchain>=0.0.13
-langchain-community>=0.0.9
-cassandra-driver>=3.25.0   # Use "datastax-astra" if Astra DB is used directly
-PyPDF2>=3.0.0
-openai>=0.27.8
-tiktoken>=0.3.0
-python-dotenv>=1.0.0
-cassio>=0.0.3
-speechrecognition 
-pyttsx3
+streamlit
+langchain
+PyPDF2
+langchain_community
 google-cloud-texttospeech
+speechrecognition
 pyaudio
