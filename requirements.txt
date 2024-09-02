@@ -3,6 +3,3 @@ dash-bootstrap-components
 langchain
 PyPDF2
 langchain_community
-google-cloud-texttospeech
-speechrecognition
-pyaudio
